@@ -69,6 +69,7 @@ Copyright 2011 - 2013 Texas Instruments Incorporated. All rights reserved.
 #include "TI_ADS1293_register_settings.h"
 
 #include "ads1299.h"
+#include "eegservice.h"
 /*********************************************************************
  * MACROS
  */
@@ -116,6 +117,8 @@ Copyright 2011 - 2013 Texas Instruments Incorporated. All rights reserved.
 // Battery measurement period in ms
 #define DEFAULT_BATT_PERIOD                   15000
 
+#define DEFAULT_ECG_PERIOD                    4
+
 // Some values used to simulate measurements
 #define BPM_DEFAULT                           73
 #define BPM_MAX                               80
@@ -153,6 +156,8 @@ int counter_BLE = 0;
  * LOCAL VARIABLES
  */
 static uint8 heartRate_TaskID;   // Task ID for internal task/event processing
+
+static uint8 ecg_TaskID;
 
 static gaprole_States_t gapProfileState = GAPROLE_INIT;
 
@@ -200,6 +205,7 @@ static uint16 gapConnHandle;
 // Heart rate measurement value stored in this structure
 static attHandleValueNoti_t heartRateMeas;
 
+static attHandleValueNoti_t ecgMeas;
 // Components of heart rate measurement structure
 //static uint8 heartRateBpm = BPM_DEFAULT;
 static uint16 heartRateEnergy = 0;
@@ -236,7 +242,10 @@ static void heartRateMeasNotify(void);
 static void heartRateCB(uint8 event);
 static void heartRateBattCB(uint8 event);
 
- 
+static void ecgCB(uint8 event);
+static void ecgMeasNotify(void); 
+static void ecgPeriodicTask( void );
+
 /*********************************************************************
  * PROFILE CALLBACKS
  */
@@ -343,8 +352,12 @@ void HeartRate_Init( uint8 task_id )
   DevInfo_AddService( );
   Batt_AddService( );
   
+  ecg_AddService( GATT_ALL_SERVICES );
+    
   // Register for Heart Rate service callback
   HeartRate_Register( heartRateCB );
+  
+  ecg_Register(ecgCB);
   
   // Register for Battery service callback;
   Batt_Register ( heartRateBattCB );
@@ -380,7 +393,7 @@ void HeartRate_Init( uint8 task_id )
   //vishy
   P1DIR &= ~0x02; // force P1.1 as input: with Vlithium
 
-/*  Configure DRDYB (P1_7) from ADS1293 */
+//  Configure DRDYB (P1_7) from ADS1293 
   P1DIR &= ~0x80;                                                              // pin1.7 is input
   PICTL |= 0x04;                                                               // falling edge interrupt
   IRCON2 &= ~0x08;                                                             // clear Port 1 interrupt flag
@@ -458,6 +471,14 @@ uint16 HeartRate_ProcessEvent( uint8 task_id, uint16 events )
     return (events ^ HEART_PERIODIC_EVT);
   }  
 
+  if ( events & ECG_PERIODIC_EVT )
+  {
+    // Perform periodic heart rate task
+    ecgPeriodicTask();
+    
+    return (events ^ ECG_PERIODIC_EVT);
+  }  
+  
   if ( events & BATT_PERIODIC_EVT )
   {
     // Perform periodic battery task
@@ -562,8 +583,12 @@ static void heartRateMeasNotify(void)
   HalI2CRead(HR_ID, 1, &pointer_r);
   
   count = pointer_w - pointer_r;
+  /*
+  heartRateMeas.value[0] = 1;
+  heartRateMeas.len = 16;
+  HeartRate_MeasNotify( gapConnHandle, &heartRateMeas );
   
-  
+  */
   if(count < 8)     //Total buffer=16 samples. 8sample * 20ms = 160ms
   {  
     buffer_w[0] = FIFO_DATA;      
@@ -583,10 +608,43 @@ static void heartRateMeasNotify(void)
     HeartRate_MeasNotify( gapConnHandle, &heartRateMeas );
   }
   
- /*
-  heartRateMeas.len = 16;
-  heartRateMeas.value[0] = 1;
-  HeartRate_MeasNotify( gapConnHandle, &heartRateMeas );
+}
+
+/*********************************************************************
+ * @fn      ecgMeasNotify
+ *
+ * @brief   Prepare and send a ecg measurement notification
+ *
+ * @return  none
+ */
+
+static void ecgMeasNotify(void)
+{
+  uint8 i;
+
+  ecgMeas.len = 18;
+  ecgMeas.value[0] = 1;
+  ecg_MeasNotify( gapConnHandle, &ecgMeas);
+    //----read data byte from spi
+    
+    //1 status(3 BYTES) + 8 channel * 3 BYTES(24bits)=27 B
+   /*
+  if(dataReadyFlag == 1)
+  {
+    
+    osal_memcpy(&ecgMeas.value[0], &send_buf[counter_BLE * 18], 18);   //maximum size?
+     
+    if(ecg_MeasNotify( gapConnHandle, &ecgMeas) == SUCCESS)
+    {
+      counter_BLE++;
+      if(counter_BLE == 2)    //2*18=36Bytes  12 samples has been sent, then wait for new data filled
+      {
+        counter_BLE = 0;
+        dataReadyFlag = 0;  
+        send_buf = NULL;
+      }
+    }
+  }
   */
 }
 
@@ -719,6 +777,37 @@ static void heartRateCB(uint8 event)
 }
 
 /*********************************************************************
+ * @fn      eegCB
+ *
+ * @brief   Callback function for ecg service.
+ *
+ * @param   event - service event
+ *
+ * @return  none
+ */
+static void ecgCB(uint8 event)
+{
+  if (event == ECG_MEAS_NOTI_ENABLED)
+  {
+    // if connected start periodic measurement
+    if (gapProfileState == GAPROLE_CONNECTED)
+    {
+      osal_start_timerEx( heartRate_TaskID, ECG_PERIODIC_EVT, DEFAULT_ECG_PERIOD );
+    } 
+  }
+  else if (event == ECG_MEAS_NOTI_DISABLED)
+  {
+    // stop periodic measurement
+    osal_stop_timerEx( heartRate_TaskID, ECG_PERIODIC_EVT );
+  }
+  else if (event == ECG_COMMAND_SET)
+  {
+    // reset energy expended                   ???
+    heartRateEnergy = 0;
+  }
+}
+
+/*********************************************************************
  * @fn      heartRateBattCB
  *
  * @brief   Callback function for battery service.
@@ -763,6 +852,28 @@ static void heartRatePeriodicTask( void )
     
     // Restart timer
     osal_start_timerEx( heartRate_TaskID, HEART_PERIODIC_EVT, DEFAULT_HEARTRATE_PERIOD );
+  }
+}
+
+/*********************************************************************
+ * @fn      eegPeriodicTask
+ *
+ * @brief   Perform a periodic ecg application task.
+ *
+ * @param   none
+ *
+ * @return  none
+ */
+static void ecgPeriodicTask( void )
+{
+  if (gapProfileState == GAPROLE_CONNECTED)
+  {
+    
+    // send heart rate measurement notification
+    ecgMeasNotify();
+    
+    // Restart timer
+    osal_start_timerEx( heartRate_TaskID, ECG_PERIODIC_EVT, DEFAULT_ECG_PERIOD );
   }
 }
 

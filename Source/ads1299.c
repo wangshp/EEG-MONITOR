@@ -2,7 +2,7 @@
 #include <hal_types.h>
 #include "TI_CC254x_spi.h"
 
-
+uint8 space[2];
 void ads1299_set_up(void)
 { 
   START_ADS = 0;   //TEST R28
@@ -29,10 +29,16 @@ void ads1299_set_up(void)
   ADS_WRITE_command(_SDATAC);  //before read
   us_delay(4);
 
-  ads1299_write_reg(CONFIG3, 0xEC);  // 1110 0000  !!changed to set BIAS reference signal source.
+  ads1299_write_reg(CONFIG3, 0xEE);  // 1110 0000  !!changed to set BIAS reference signal source.
   us_delay(4);
   
+  //test SPI
+ // ads1299_read_reg(ID, space); //just to make sure i set every register correctly
+ // us_delay(4);
   
+ // ads1299_read_reg(CONFIG3, space); //just to make sure i set every register correctly
+ // us_delay(4);
+
   ads1299_write_reg(CONFIG1, 0x96); //changed 250sps
   us_delay(4);
  
@@ -57,15 +63,22 @@ void ads1299_set_up(void)
   
   ads1299_write_reg(CH8SET, 0x68);
   ms_delay(1);
+
+  ads1299_write_reg(LOFF, 0x43);
+  ms_delay(1);  
+  ads1299_write_reg(CONFIG4, 0x02); //enable lead off detection
+  ms_delay(1);
   
-  ads1299_write_reg(BIAS_SENSP, 0x80);
+  ads1299_write_reg(BIAS_SENSP, 0x80); //use lead 8 as bias.
   ms_delay(1);
   ads1299_write_reg(BIAS_SENSN, 0x80);
   ms_delay(1);
   
-  
 
-  
+  ads1299_write_reg(LOFF_SENSN, 0xFF); 
+  ms_delay(1);
+  ads1299_write_reg(LOFF_SENSP, 0xFF); 
+  ms_delay(1);
   
   START_ADS = 1;
   us_delay(4);

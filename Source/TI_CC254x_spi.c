@@ -32,7 +32,7 @@
   purpose.
 
   YOU FURTHER ACKNOWLEDGE AND AGREE THAT THE SOFTWARE AND DOCUMENTATION ARE
-  PROVIDED “AS IS” WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+  PROVIDED “AS IS?WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED,
   INCLUDING WITHOUT LIMITATION, ANY WARRANTY OF MERCHANTABILITY, TITLE,
   NON-INFRINGEMENT AND FITNESS FOR A PARTICULAR PURPOSE. IN NO EVENT SHALL TEXAS
   INSTRUMENTS OR ITS LICENSORS BE LIABLE OR OBLIGATED UNDER CONTRACT,
@@ -46,10 +46,10 @@
   Should you have any questions regarding your right to use this Software,
   contact Texas Instruments Incorporated at www.TI.com.
 *******************************************************************************/
-
-#include "TI_ADS1293.h"
 #include "TI_CC254x.h"
 #include "TI_CC254x_hardware_board.h"
+
+#include "TI_ADS1293.h"
 #include "TI_CC254x_spi.h"
 #include "TI_ADS1293_register_settings.h"
 
@@ -58,7 +58,7 @@
 void spiWriteByte(uint8 write);
 void spiReadByte(uint8 *read, uint8 write);
 //------------------------------------------------------------------------------
-//  void TI_ADS1293_SPISetup(void)
+
 //
 //  DESCRIPTION:
 //  Configures the assigned interface to function as a SPI port and
@@ -75,6 +75,8 @@ void TI_ADS1293_SPISetup(void)
     // Configure CS (P1_2) as output
     P1DIR |= 0x04;
     CS = CS_DISABLED;
+    
+ 
 
     //*** Setup the SPI interface ***
     // SPI master mode
@@ -86,8 +88,11 @@ void TI_ADS1293_SPISetup(void)
     // SCK frequency = 480.5kHz (max 500kHz)
     // U0GCR |= 0x0D;
     // U0BAUD = 0xEC;
-    // SCK frequency = 4MHz (F/8)assuming 32MHz crystal
-    U0GCR |= 0x11;
+    // SCK frequency = 2MHz (F/16)assuming 32MHz crystal  !!!(changed)
+    U0GCR |= 0x10;
+    //set output edge!!!
+    U0GCR |= 0x40;
+    
     U0BAUD = 0x0;    
 
 }
@@ -129,7 +134,6 @@ uint8 TI_ADS1293_SPIReadReg(uint8 addr)
  
   inst = ADS1293_READ_BIT | addr;                                              // register address
   
-//  WAIT_1_3US(2);                                                               // Wait 
   spiWriteByte(inst);                                                          // Send lower register address  
   
   spiReadByte(&pVal, 0xFF);                                                     // Read data
@@ -248,6 +252,8 @@ void spiWriteByte(uint8 write)
         U0DBUF = write;
         while (!(U0CSR & 0x02));        // Wait for TX_BYTE to be set
 }
+
+
 //------------------------------------------------------------------------------
 /** \brief	Read one byte from SPI interface
 *
@@ -265,6 +271,7 @@ void spiReadByte(uint8 *read, uint8 write)
         U0DBUF = write;
         while (!(U0CSR & 0x02));        // Wait for TX_BYTE to be set
         *read = U0DBUF;
+        //*read = 0x11;   //test??
 }
 //------------------------------------------------------------------------------
 //******************************************************************************

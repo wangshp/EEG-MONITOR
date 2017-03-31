@@ -144,6 +144,8 @@ uint8 *send_buf = NULL;
 uint8 dataReadyFlag = 0;
 int counter_ADS = 0;
 int counter_BLE = 0;
+
+uint8 testspace[2];
 /*********************************************************************
  * EXTERNAL VARIABLES
  */
@@ -402,13 +404,9 @@ void HeartRate_Init( uint8 task_id )
   IEN2  |= 0x10;                                                               // enable Port1 interrupt
 
   delay_init();
+
   TI_ADS1293_SPISetup();                                                       // Initilaize CC254x SPI Block 
   ads1299_set_up();
-  
-  
-  
-
-
   
   //turn on overlapped processing
   HCI_EXT_HaltDuringRfCmd(HCI_EXT_HALT_DURING_RF_DISABLE);
@@ -474,8 +472,8 @@ uint16 HeartRate_ProcessEvent( uint8 task_id, uint16 events )
   if ( events & ECG_PERIODIC_EVT )
   {
     // Perform periodic heart rate task
-    ecgPeriodicTask();
-    
+      ecgPeriodicTask();
+       
     return (events ^ ECG_PERIODIC_EVT);
   }  
   
@@ -623,12 +621,14 @@ static void ecgMeasNotify(void)
   uint8 i;
 
   ecgMeas.len = 18;
+  /*
   ecgMeas.value[0] = 1;
   ecg_MeasNotify( gapConnHandle, &ecgMeas);
+  */
     //----read data byte from spi
     
     //1 status(3 BYTES) + 8 channel * 3 BYTES(24bits)=27 B
-   /*
+   
   if(dataReadyFlag == 1)
   {
     
@@ -645,7 +645,7 @@ static void ecgMeasNotify(void)
       }
     }
   }
-  */
+  
 }
 
 /*********************************************************************
@@ -666,7 +666,7 @@ static void HeartRateGapStateCB( gaprole_States_t newState )
     GAPRole_GetParameter(GAPROLE_CONNHANDLE, &gapConnHandle);
     
     //Init the heart rate module
-    hr_module_init(); 
+    // hr_module_init(); 
   }
   // if disconnected
   else if (gapProfileState == GAPROLE_CONNECTED && 
@@ -677,7 +677,7 @@ static void HeartRateGapStateCB( gaprole_States_t newState )
     // stop periodic measurement
     osal_stop_timerEx( heartRate_TaskID, HEART_PERIODIC_EVT );
     
-    hr_module_stop();
+    //hr_module_stop();
     
     // reset client characteristic configuration descriptors
     HeartRate_HandleConnStatusCB( gapConnHandle, LINKDB_STATUS_UPDATE_REMOVED );
@@ -756,16 +756,19 @@ static void heartRateCB(uint8 event)
 {
   if (event == HEARTRATE_MEAS_NOTI_ENABLED)
   {
-    //heart rate module initiation.
-    //hr_module_init();
-    // if connected start periodic measurement
+
     if (gapProfileState == GAPROLE_CONNECTED)
     {
+      //heart rate module initiation.
+      // if connected start periodic measurement 
+      hr_module_init();
+         
       osal_start_timerEx( heartRate_TaskID, HEART_PERIODIC_EVT, DEFAULT_HEARTRATE_PERIOD );
     } 
   }
   else if (event == HEARTRATE_MEAS_NOTI_DISABLED)
   {
+    hr_module_stop();
     // stop periodic measurement
     osal_stop_timerEx( heartRate_TaskID, HEART_PERIODIC_EVT );
   }
@@ -868,7 +871,6 @@ static void ecgPeriodicTask( void )
 {
   if (gapProfileState == GAPROLE_CONNECTED)
   {
-    
     // send heart rate measurement notification
     ecgMeasNotify();
     
@@ -974,20 +976,45 @@ __near_func __interrupt void TI_ADS1293_DRDY_PORTx(void)
     CS_ADS = 0; 
     spiWriteByte(_RDATA);    
     us_delay(10);
-    
-    //read and dismiss the 3 status bytes of ADS.
+   
+   
+    /*read and dismiss the 3 status bytes of ADS.*/
     for(int i = 0; i<8; i++)
     {
       spiReadByte((&blank_buf), 0xFF);
       spiReadByte((&blank_buf), 0xFF);
       spiReadByte((&blank_buf), 0xFF);
-    }
+    }    
+    
     for(int i = 0; i < 3; i++)
     {
       spiReadByte((tmp_buf+i+counter_ADS), 0xFF);                                             // Read data     
-    }
+    }  
     counter_ADS = counter_ADS + 3;
+
+    
+    /*For new task receive 6 chanel: 2bytes + 3*6=20bytes
+    250sps = sample set/4ms, then average packet sending rate should be < 4ms. --> ios won't work well!
+    use two 20bytes buffer.
+    hopefully, andriod could fullfill our requirement!
+    for(int i = 0; i<2; i++)
+    {
+      spiReadByte((&blank_buf), 0xFF);
+      spiReadByte((&blank_buf), 0xFF);
+      spiReadByte((&blank_buf), 0xFF);
+    }
+    
+    for(int i = 0; i<6; i++)
+    {
+      for(int i = 0; i < 3; i++)
+      {
+        spiReadByte((tmp_buf+i+counter_ADS), 0xFF);                                             // Read data     
+      } 
+      counter_ADS = counter_ADS + 3;
+    }    
+    */
     CS_ADS = 1;
+
 
     //no flag contrain, no ADS waiting, keep data continuous.
     if(counter_ADS > 35)  //36bytes will takes 12*2ms = 24ms or 12*4ms= 48ms
@@ -999,7 +1026,6 @@ __near_func __interrupt void TI_ADS1293_DRDY_PORTx(void)
         recv_buf = dataBufX;
       dataReadyFlag = 1; 
       counter_ADS = 0;
-
     } 
   }
 

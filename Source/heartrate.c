@@ -405,8 +405,8 @@ void HeartRate_Init( uint8 task_id )
 
   delay_init();
 
-  TI_ADS1293_SPISetup();                                                       // Initilaize CC254x SPI Block 
-  ads1299_set_up();
+ // TI_ADS1293_SPISetup();                                                       // Initilaize CC254x SPI Block 
+ // ads1299_set_up();
   
   //turn on overlapped processing
   HCI_EXT_HaltDuringRfCmd(HCI_EXT_HALT_DURING_RF_DISABLE);
@@ -795,6 +795,8 @@ static void ecgCB(uint8 event)
     // if connected start periodic measurement
     if (gapProfileState == GAPROLE_CONNECTED)
     {
+      TI_ADS1293_SPISetup();                                                       // Initilaize CC254x SPI Block 
+      ads1299_set_up();      
       osal_start_timerEx( heartRate_TaskID, ECG_PERIODIC_EVT, DEFAULT_ECG_PERIOD );
     } 
   }
@@ -802,6 +804,7 @@ static void ecgCB(uint8 event)
   {
     // stop periodic measurement
     osal_stop_timerEx( heartRate_TaskID, ECG_PERIODIC_EVT );
+    ads1299_shut_down();    
   }
   else if (event == ECG_COMMAND_SET)
   {
@@ -976,8 +979,12 @@ __near_func __interrupt void TI_ADS1293_DRDY_PORTx(void)
     CS_ADS = 0; 
     spiWriteByte(_RDATA);    
     us_delay(10);
-   
-   
+
+    for(int i = 0; i < 3; i++)
+    {
+      spiReadByte((tmp_buf+i+counter_ADS), 0xFF);                                             // Read data     
+    }  
+    counter_ADS = counter_ADS + 3;      
     /*read and dismiss the 3 status bytes of ADS.*/
     for(int i = 0; i<8; i++)
     {
@@ -986,11 +993,7 @@ __near_func __interrupt void TI_ADS1293_DRDY_PORTx(void)
       spiReadByte((&blank_buf), 0xFF);
     }    
     
-    for(int i = 0; i < 3; i++)
-    {
-      spiReadByte((tmp_buf+i+counter_ADS), 0xFF);                                             // Read data     
-    }  
-    counter_ADS = counter_ADS + 3;
+
 
     
     /*For new task receive 6 chanel: 2bytes + 3*6=20bytes

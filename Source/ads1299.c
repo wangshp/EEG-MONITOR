@@ -29,7 +29,7 @@ void ads1299_set_up(void)
   ADS_WRITE_command(_SDATAC);  //before read
   us_delay(4);
 
-  ads1299_write_reg(CONFIG3, 0xEE);  // 1110 0000  !!changed to set BIAS reference signal source.
+  ads1299_write_reg(CONFIG3, 0xEC);  // 1110 0000  !!changed to set BIAS reference signal source.
   us_delay(4);
   
   //test SPI
@@ -50,28 +50,28 @@ void ads1299_set_up(void)
   us_delay(4);
   ads1299_write_reg(CH2SET, 0x81);
   ms_delay(1);
-  ads1299_write_reg(CH3SET, 0x81);
+  ads1299_write_reg(CH3SET, 0x60);
   ms_delay(1);
-  ads1299_write_reg(CH4SET, 0x81);
+  ads1299_write_reg(CH4SET, 0x60);
   ms_delay(1);
   ads1299_write_reg(CH5SET, 0x81);
   ms_delay(1);
   ads1299_write_reg(CH6SET, 0x81);
   ms_delay(1);
-  ads1299_write_reg(CH7SET, 0x81);
+  ads1299_write_reg(CH7SET, 0x60);
   ms_delay(1);
   
-  ads1299_write_reg(CH8SET, 0x68);
+  ads1299_write_reg(CH8SET, 0x60); //set the SRB connection as open to unconnected
   ms_delay(1);
 
-  ads1299_write_reg(LOFF, 0x43);
+  ads1299_write_reg(LOFF, 0x08);
   ms_delay(1);  
   ads1299_write_reg(CONFIG4, 0x02); //enable lead off detection
   ms_delay(1);
   
-  ads1299_write_reg(BIAS_SENSP, 0x80); //use lead 8 as bias.
+  ads1299_write_reg(BIAS_SENSP, 0x00); //use lead 8 as bias.
   ms_delay(1);
-  ads1299_write_reg(BIAS_SENSN, 0x80);
+  ads1299_write_reg(BIAS_SENSN, 0x00);
   ms_delay(1);
   
 
@@ -86,6 +86,13 @@ void ads1299_set_up(void)
 //  ADS_WRITE_command(_RDATAC);
   us_delay(4);
   
+}
+
+void ads1299_shut_down(void)
+{ 
+  ADS_WRITE_command(_STOP);  //before read
+  us_delay(4);
+  PWDN_ADS = 0;
 }
 
 

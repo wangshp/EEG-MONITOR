@@ -13,7 +13,7 @@ void ads1299_set_up(void)
   
   PWDN_ADS = 1;  //P0_7
   RESET_ADS = 1;  //R38
-  ms_delay(2);    //??? test point:
+  ms_delay(200);    //??? test point:
   //should check time using oscilloscope VCAP1>1.1v
   
  
@@ -46,38 +46,39 @@ void ads1299_set_up(void)
   ads1299_write_reg(CONFIG2, 0xC0); //1100 0000
   us_delay(4);
 
-  ads1299_write_reg(CH1SET, 0x60); //only use channels 1~3 as input, 4 as bias.
+  ads1299_write_reg(CH1SET, 0x81);
   us_delay(4);
-  ads1299_write_reg(CH2SET, 0x60);
-  us_delay(4);
-  ads1299_write_reg(CH3SET, 0x60);
-  us_delay(4);
+  ads1299_write_reg(CH2SET, 0x81);
+  ms_delay(1);
+  ads1299_write_reg(CH3SET, 0x81);
+  ms_delay(1);
   ads1299_write_reg(CH4SET, 0x60); // channel 4 used as bias drive.
-  us_delay(4);
-  ads1299_write_reg(CH5SET, 0x81); //take data from 5~8 channels
-  us_delay(4);
-  ads1299_write_reg(CH6SET, 0x81);
-  us_delay(4);
-  ads1299_write_reg(CH7SET, 0x81);
-  us_delay(4);
-  ads1299_write_reg(CH8SET, 0x81); //set the SRB connection as open to unconnected
-  us_delay(4);
+  ms_delay(1);
+  ads1299_write_reg(CH5SET, 0x60); //take data from 5~8 channels
+  ms_delay(1);
+  ads1299_write_reg(CH6SET, 0x60);
+  ms_delay(1);
+  ads1299_write_reg(CH7SET, 0x60);
+  ms_delay(1);
+  
+  ads1299_write_reg(CH8SET, 0x60); //set the SRB connection as open to unconnected
+  ms_delay(1);
 
   ads1299_write_reg(LOFF, 0x08);
-  us_delay(4);
+  ms_delay(1);  
   ads1299_write_reg(CONFIG4, 0x02); //enable lead off detection
-  us_delay(4);
+  ms_delay(1);
   
-  ads1299_write_reg(BIAS_SENSP, 0x08); //use channel 4 as bias. does matter.
-  us_delay(4);
+  ads1299_write_reg(BIAS_SENSP, 0x08); //use channel 4 as bias.
+  ms_delay(1);
   ads1299_write_reg(BIAS_SENSN, 0x08);
-  us_delay(4);
+  ms_delay(1);
   
 
-  ads1299_write_reg(LOFF_SENSN, 0x0f); 
-  us_delay(4);
-  ads1299_write_reg(LOFF_SENSP, 0x0f); 
-  us_delay(4);
+  ads1299_write_reg(LOFF_SENSN, 0xFF); 
+  ms_delay(1);
+  ads1299_write_reg(LOFF_SENSP, 0xFF); 
+  ms_delay(1);
   
   START_ADS = 1;
   us_delay(4);

@@ -60,6 +60,7 @@ extern "C"
 #define BATT_PERIODIC_EVT                             0x0004
 
 #define ECG_PERIODIC_EVT                              0x0010
+#define HAPTIC_PERIODIC_EVT                           0x0020
   
 // Heart Rate module  
 #define HR_ID           0x57    //0101 0111

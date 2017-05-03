@@ -124,6 +124,7 @@ void ads1299_write_reg(uint8 ADDR, uint8 VAL);
 void ads1299_read_reg(uint8 ADR, uint8 *register_data);
 
 void ads1299_set_up(void);
+void ads1299_shut_down(void);
 void TI_ADS1293_SPIStreamRead(uint8 *buffer, uint8 count);
 void ADS_WRITE_command(uint8 command);
 

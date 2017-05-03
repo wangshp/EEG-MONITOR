@@ -117,10 +117,8 @@ Copyright 2011 - 2013 Texas Instruments Incorporated. All rights reserved.
 // Battery measurement period in ms
 #define DEFAULT_BATT_PERIOD                   15000
 
-#define DEFAULT_ECG_PERIOD                    4
+#define DEFAULT_ECG_PERIOD                    20
 
-#define DEFAULT_HAPTIC_PERIOD                 200
-   
 // Some values used to simulate measurements
 #define BPM_DEFAULT                           73
 #define BPM_MAX                               80
@@ -134,7 +132,7 @@ Copyright 2011 - 2013 Texas Instruments Incorporated. All rights reserved.
 /*********************************************************************
  * GLOBAL VARIABLES
  */
-#define BUF_SIZE 20   //12*3= 2*6*3 6*2ms *2 =24ms
+#define BUF_SIZE 36   //12*3= 2*6*3 6*2ms *2 =24ms
 
 uint8 dataBufX[BUF_SIZE];
 uint8 dataBufY[BUF_SIZE];
@@ -142,18 +140,13 @@ uint8 dataBufY[BUF_SIZE];
 uint8 rptr = 0;
 uint8 wptr = 0;
 uint8 *recv_buf = dataBufX;
-uint8 *send_buf = dataBufX;
+uint8 *send_buf = NULL;
 uint8 dataReadyFlag = 0;
 int counter_ADS = 0;
 int counter_BLE = 0;
 int packet2enable = 0;
 
 uint8 testspace[2];
-uint8 status0;
-uint8 status1;
-uint8 status2; 
-int status_value1 = 0;
-int status_value2 = 0;
 /*********************************************************************
  * EXTERNAL VARIABLES
  */
@@ -256,7 +249,6 @@ static void ecgCB(uint8 event);
 static void ecgMeasNotify(void); 
 static void ecgPeriodicTask( void );
 
-static void hapticPeriodicTask();
 /*********************************************************************
  * PROFILE CALLBACKS
  */
@@ -293,7 +285,6 @@ static const gapBondCBs_t heartRateBondCB =
  *
  * @return  none
  */
-
 void HeartRate_Init( uint8 task_id )
 {
   heartRate_TaskID = task_id;
@@ -414,16 +405,10 @@ void HeartRate_Init( uint8 task_id )
   IEN2  |= 0x10;                                                               // enable Port1 interrupt
 
   delay_init();
-  P1_0 = 1;
-  ms_delay(2000);
-  P1_0 = 0;
-  ms_delay(2000);
-  P1_0 = 1;
-  
-  //TI_ADS1293_SPISetup();                                                       // Initilaize CC254x SPI Block 
-  //ads1299_set_up();      
-  
 
+ // TI_ADS1293_SPISetup();                                                       // Initilaize CC254x SPI Block 
+ // ads1299_set_up();
+  
   //turn on overlapped processing
   HCI_EXT_HaltDuringRfCmd(HCI_EXT_HALT_DURING_RF_DISABLE);
   HCI_EXT_OverlappedProcessingCmd(HCI_EXT_ENABLE_OVERLAPPED_PROCESSING);
@@ -499,14 +484,6 @@ uint16 HeartRate_ProcessEvent( uint8 task_id, uint16 events )
     heartRateBattPeriodicTask();
     
     return (events ^ BATT_PERIODIC_EVT);
-  }  
-  
-  if ( events & HAPTIC_PERIODIC_EVT )
-  {
-    // Perform periodic battery task
-    hapticPeriodicTask();
-    
-    return (events ^ HAPTIC_PERIODIC_EVT);
   }  
   
   // Discard unknown events
@@ -644,14 +621,14 @@ static void ecgMeasNotify(void)
 {
   uint8 i;
 
-  ecgMeas.len = 20;  //20 ,ark??
+  ecgMeas.len = 18;
   /*
   ecgMeas.value[0] = 1;
   ecg_MeasNotify( gapConnHandle, &ecgMeas);
   */
     //----read data byte from spi
     
-  /* 4 or 3 channel */ 
+  /* 4 channel
   if(dataReadyFlag == 1)
   {
     osal_memcpy(&ecgMeas.value[0], &send_buf[0], 20);
@@ -660,9 +637,9 @@ static void ecgMeasNotify(void)
       dataReadyFlag = 0;           
       send_buf = NULL;      
     }
-}
-
-/*   1 channel 
+  }
+  */
+  /* 1 channel */
   if(dataReadyFlag == 1)
   {
     
@@ -679,7 +656,7 @@ static void ecgMeasNotify(void)
       }
     }
   }
-  */
+  
   
 }
 
@@ -700,11 +677,8 @@ static void HeartRateGapStateCB( gaprole_States_t newState )
     // get connection handle
     GAPRole_GetParameter(GAPROLE_CONNHANDLE, &gapConnHandle);
     
-    //Start haptic sensor task.
-    osal_start_timerEx( heartRate_TaskID, HAPTIC_PERIODIC_EVT, DEFAULT_HAPTIC_PERIOD );
     //Init the heart rate module
     // hr_module_init(); 
-    //ads1299_set_up();
   }
   // if disconnected
   else if (gapProfileState == GAPROLE_CONNECTED && 
@@ -714,9 +688,6 @@ static void HeartRateGapStateCB( gaprole_States_t newState )
 
     // stop periodic measurement
     osal_stop_timerEx( heartRate_TaskID, HEART_PERIODIC_EVT );
-    
-    //stop haptic sensor task
-    osal_stop_timerEx( heartRate_TaskID, HAPTIC_PERIODIC_EVT );
     
     //hr_module_stop();
     
@@ -837,7 +808,7 @@ static void ecgCB(uint8 event)
     if (gapProfileState == GAPROLE_CONNECTED)
     {
       TI_ADS1293_SPISetup();                                                       // Initilaize CC254x SPI Block 
-      ads1299_set_up();      //can't set up at here.
+      ads1299_set_up();      
       osal_start_timerEx( heartRate_TaskID, ECG_PERIODIC_EVT, DEFAULT_ECG_PERIOD );
     } 
   }
@@ -845,7 +816,7 @@ static void ecgCB(uint8 event)
   {
     // stop periodic measurement
     osal_stop_timerEx( heartRate_TaskID, ECG_PERIODIC_EVT );
-    //ads1299_shut_down();    
+    ads1299_shut_down();    
   }
   else if (event == ECG_COMMAND_SET)
   {
@@ -944,29 +915,6 @@ static void heartRateBattPeriodicTask( void )
   }
 }
 
-void Haptic_Control(void)
-{
-  int ha;
-  if(P1_0 == 1)
-    P1_0 = 0;
-  else 
-    P1_0 = 1;
-    
-}
-
-static void hapticPeriodicTask()
-{
-  if (gapProfileState == GAPROLE_CONNECTED)
-    {
-      // perform battery level check
-      Haptic_Control( );
-      
-      // Restart timer
-      osal_start_timerEx( heartRate_TaskID, HAPTIC_PERIODIC_EVT, DEFAULT_HAPTIC_PERIOD );
-    }  
-}
-
-
 void hr_module_init()
 {
   //heart rate init.
@@ -1014,9 +962,6 @@ void hr_module_stop()
 }
 
 
-
-int num_counter = 0;
-
 /******************************************************************************/
 // TI_ADS1293_SPI_DRDYB_PIN interrupt service routine
 #pragma vector = P1INT_VECTOR
@@ -1045,10 +990,13 @@ __near_func __interrupt void TI_ADS1293_DRDY_PORTx(void)
     // test RDATA mode 
 
     CS_ADS = 0; 
-    spiWriteByte(_RDATA);     //???
+    spiWriteByte(_RDATA);    
     us_delay(10);
     /* 1 channel 
-  
+    for(int i = 0; i < 3; i++)
+    {
+      spiReadByte((tmp_buf+i+counter_ADS), 0xFF);                                             // Read data     
+    }  
     counter_ADS = counter_ADS + 3;      
     
     for(int i = 0; i<8; i++)
@@ -1057,25 +1005,18 @@ __near_func __interrupt void TI_ADS1293_DRDY_PORTx(void)
       spiReadByte((&blank_buf), 0xFF);
       spiReadByte((&blank_buf), 0xFF);
     }    
-    for(int i = 0; i < 3; i++)
-    {
-      spiReadByte((recv_buf+i+counter_ADS), 0xFF);                                             // Read data     
-    }   
-    //*(recv_buf+counter_ADS) = 10;
-    //*(recv_buf+counter_ADS + 1) = 10;
     */
-    
-    /* 4 channels  
+    /* 4 channels 
     //read status data to packet 1.
     //leave status to read.
     //set packet header
     if((counter_ADS == 0) && (packet2enable == 0))
     {
-      *(recv_buf + counter_ADS) = 1;
+      *(tmp_buf + counter_ADS) = 1;
       counter_ADS += 1;
       for(int i = 0; i < 2; i++)
       {
-        spiReadByte((recv_buf+i+counter_ADS), 0xFF);                                             // Read data     
+        spiReadByte((tmp_buf+i+counter_ADS), 0xFF);                                             // Read data     
       }  
       counter_ADS = counter_ADS + 2;
       spiReadByte((&blank_buf), 0xFF); //need to change! deal with status.???
@@ -1091,7 +1032,7 @@ __near_func __interrupt void TI_ADS1293_DRDY_PORTx(void)
       {
         for(int i = 0; i < 3; i++)
         {
-          spiReadByte((recv_buf+i+counter_ADS), 0xFF);                                             // Read data     
+          spiReadByte((tmp_buf+i+counter_ADS), 0xFF);                                             // Read data     
         }  
         counter_ADS = counter_ADS + 3;    
       }
@@ -1110,28 +1051,29 @@ __near_func __interrupt void TI_ADS1293_DRDY_PORTx(void)
       
       for(int i = 0; i < 5; i++)
       {
-        spiReadByte((recv_buf+i+counter_ADS), 0xFF);                                             // Read data     
+        spiReadByte((tmp_buf+i+counter_ADS), 0xFF);                                             // Read data     
       }  
-      send_buf = dataBufX;   //changed.??
+      counter_ADS = counter_ADS + 5; 
+      send_buf = recv_buf;
       dataReadyFlag = 1;
       packet2enable = 1;
       counter_ADS = 0;
       
-      //keep sending to another buffer.
-   
-      recv_buf = dataBufY;
-      
+      if (recv_buf == dataBufX)  //keep sending to another buffer.
+        recv_buf = dataBufY;
+      else
+        recv_buf = dataBufX;
       
       //header for packet 2
-      *(recv_buf + counter_ADS) = 2;
-      counter_ADS = counter_ADS + 1;
+      *(tmp_buf + counter_ADS) = 2;
+      counter_ADS += 1;
       
       //read data to the other buffer for packet 2
       for(int i = 0; i < 7; i++)
       {
-        spiReadByte((recv_buf+i+counter_ADS), 0xFF);                                             // Read data     
+        spiReadByte((tmp_buf+i+counter_ADS), 0xFF);                                             // Read data     
       }   
-      counter_ADS = counter_ADS + 7;
+      counter_ADS += 7;
     }
     
     if((packet2enable == 1) && (counter_ADS == 8))
@@ -1149,103 +1091,25 @@ __near_func __interrupt void TI_ADS1293_DRDY_PORTx(void)
       {
         for(int i = 0; i < 3; i++)
         {
-          spiReadByte((recv_buf+i+counter_ADS), 0xFF);                                             // Read data     
+          spiReadByte((tmp_buf+i+counter_ADS), 0xFF);                                             // Read data     
         }  
         counter_ADS = counter_ADS + 3;    
       }
       counter_ADS = 0;
-      send_buf = dataBufY;  //??
-      dataReadyFlag = 1;
-      packet2enable = 0;
- 
-      recv_buf = dataBufX; //??
-      
-    }
-    */
-
-
-  
-    if(counter_ADS == 0)
-    {
-      /* 3 channels */
-      //status.
-      spiReadByte( &status0, 0xFF); 
-      spiReadByte( &status1, 0xFF); 
-      spiReadByte( &status2, 0xFF); 
-      
-
-
-      status_value1 = status1 >> 4;
-      status0 = status0 << 4;
-      *recv_buf = status0 + status_value1;
-      status_value1 = status1 << 4;
-      status_value2 = status2 >> 4;
-      *(recv_buf + 1) = status_value1 + status_value2;
-      
-      counter_ADS = counter_ADS + 2;  
-
-      //eeg data for 3 channels
-      for(int i = 0; i < 3; i++)
-      {
-        spiReadByte((recv_buf+i+counter_ADS), 0xFF);                                             // Read data     
-      }    
-      counter_ADS = counter_ADS + 3;  
-      for(int i = 0; i < 3; i++)
-      {
-        spiReadByte((recv_buf+i+counter_ADS), 0xFF);                                             // Read data     
-      }    
-      counter_ADS = counter_ADS + 3;  
-      for(int i = 0; i < 3; i++)
-      {
-        spiReadByte((recv_buf+i+counter_ADS), 0xFF);                                             // Read data     
-      }    
-      counter_ADS = counter_ADS + 3; 
-      
-      for(int i = 0; i<5; i++)
-      {
-        spiReadByte((&blank_buf), 0xFF);
-        spiReadByte((&blank_buf), 0xFF);
-        spiReadByte((&blank_buf), 0xFF);
-      }
-
-
-    }
-    else
-    {
-      /*  */
-      spiReadByte((&blank_buf), 0xFF);
-      spiReadByte((&blank_buf), 0xFF);
-      spiReadByte((&blank_buf), 0xFF);
-      
-      for(int j = 0; j < 3; j++)
-      {
-        for(int i = 0; i < 3; i++)
-        {
-          spiReadByte((recv_buf+i+counter_ADS), 0xFF);                                             // Read data     
-        }    
-        counter_ADS = counter_ADS + 3; 
-      }
-      for(int i = 0; i<5; i++)
-      {
-        spiReadByte((&blank_buf), 0xFF);
-        spiReadByte((&blank_buf), 0xFF);
-        spiReadByte((&blank_buf), 0xFF);
-      }       
-    
-      counter_ADS = 0;
       send_buf = recv_buf;
       dataReadyFlag = 1;
+      packet2enable = 0;
       if (recv_buf == dataBufX)  //keep sending to another buffer.
         recv_buf = dataBufY;
       else
         recv_buf = dataBufX;
       
     }
-    
-    
+
+    */
     CS_ADS = 1;
 
-    /* 1 channel   
+    /* 1 channel  
     //no flag contrain, no ADS waiting, keep data continuous.
     if(counter_ADS > 35)  //36bytes will takes 12*2ms = 24ms or 12*4ms= 48ms
     {      
@@ -1258,10 +1122,7 @@ __near_func __interrupt void TI_ADS1293_DRDY_PORTx(void)
       counter_ADS = 0;
       
     }
-   */
-    
-
-    
+    */
   }
 
   EA = 1;

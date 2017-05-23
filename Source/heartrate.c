@@ -154,6 +154,10 @@ uint8 status1;
 uint8 status2; 
 int status_value1 = 0;
 int status_value2 = 0;
+
+//haptic sensor
+uint8 haptic_start = 1;
+uint8 haptic_config = 0;
 /*********************************************************************
  * EXTERNAL VARIABLES
  */
@@ -644,14 +648,15 @@ static void ecgMeasNotify(void)
 {
   uint8 i;
 
-  ecgMeas.len = 20;  //20 ,ark??
+  ecgMeas.len = 18;  //20 ,ark??
   /*
   ecgMeas.value[0] = 1;
   ecg_MeasNotify( gapConnHandle, &ecgMeas);
   */
     //----read data byte from spi
     
-  /* 4 or 3 channel */ 
+  /* 4 or 3 channel */
+  
   if(dataReadyFlag == 1)
   {
     osal_memcpy(&ecgMeas.value[0], &send_buf[0], 20);
@@ -660,12 +665,12 @@ static void ecgMeasNotify(void)
       dataReadyFlag = 0;           
       send_buf = NULL;      
     }
-}
-
+  }
+   
 /*   1 channel 
   if(dataReadyFlag == 1)
   {
-    
+
     osal_memcpy(&ecgMeas.value[0], &send_buf[counter_BLE * 18], 18);   //maximum size?
      
     if(ecg_MeasNotify( gapConnHandle, &ecgMeas) == SUCCESS)
@@ -679,7 +684,7 @@ static void ecgMeasNotify(void)
       }
     }
   }
-  */
+*/  
   
 }
 
@@ -944,14 +949,26 @@ static void heartRateBattPeriodicTask( void )
   }
 }
 
+
 void Haptic_Control(void)
 {
-  int ha;
-  if(P1_0 == 1)
+  HeartRate_GetParameter(HEARTRATE_COMMAND, &haptic_config);
+  if(haptic_config == 0x01)
+    haptic_start = 0;  
+  else if(haptic_config == 0x02)
+    haptic_start = 1;
+  
+  if(haptic_start == 1)
+  {
+    if(P1_0 == 1)
+      P1_0 = 0;
+    else 
+      P1_0 = 1;
+  }
+  else
     P1_0 = 0;
-  else 
-    P1_0 = 1;
-    
+  //haptic_config = 2;
+  //HeartRate_SetParameter(HEARTRATE_COMMAND, sizeof (uint8), &haptic_config);
 }
 
 static void hapticPeriodicTask()
@@ -1047,10 +1064,9 @@ __near_func __interrupt void TI_ADS1293_DRDY_PORTx(void)
     CS_ADS = 0; 
     spiWriteByte(_RDATA);     //???
     us_delay(10);
-    /* 1 channel 
+
+    /* 1 channel  
   
-    counter_ADS = counter_ADS + 3;      
-    
     for(int i = 0; i<8; i++)
     {
       spiReadByte((&blank_buf), 0xFF);
@@ -1061,9 +1077,12 @@ __near_func __interrupt void TI_ADS1293_DRDY_PORTx(void)
     {
       spiReadByte((recv_buf+i+counter_ADS), 0xFF);                                             // Read data     
     }   
+    counter_ADS = counter_ADS + 3; 
+    CS_ADS = 1;
+    */
     //*(recv_buf+counter_ADS) = 10;
     //*(recv_buf+counter_ADS + 1) = 10;
-    */
+   
     
     /* 4 channels  
     //read status data to packet 1.
@@ -1164,10 +1183,10 @@ __near_func __interrupt void TI_ADS1293_DRDY_PORTx(void)
     */
 
 
-  
+    /* 3 channels */
     if(counter_ADS == 0)
     {
-      /* 3 channels */
+      
       //status.
       spiReadByte( &status0, 0xFF); 
       spiReadByte( &status1, 0xFF); 
@@ -1212,7 +1231,7 @@ __near_func __interrupt void TI_ADS1293_DRDY_PORTx(void)
     }
     else
     {
-      /*  */
+      
       spiReadByte((&blank_buf), 0xFF);
       spiReadByte((&blank_buf), 0xFF);
       spiReadByte((&blank_buf), 0xFF);
@@ -1241,10 +1260,10 @@ __near_func __interrupt void TI_ADS1293_DRDY_PORTx(void)
         recv_buf = dataBufX;
       
     }
-    
-    
+   
     CS_ADS = 1;
-
+    
+    
     /* 1 channel   
     //no flag contrain, no ADS waiting, keep data continuous.
     if(counter_ADS > 35)  //36bytes will takes 12*2ms = 24ms or 12*4ms= 48ms
@@ -1258,8 +1277,8 @@ __near_func __interrupt void TI_ADS1293_DRDY_PORTx(void)
       counter_ADS = 0;
       
     }
-   */
-    
+  
+     */
 
     
   }

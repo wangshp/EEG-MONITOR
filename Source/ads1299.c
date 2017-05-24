@@ -68,9 +68,9 @@ void ads1299_set_up(void)
   ads1299_write_reg(CONFIG4, 0x02); //enable lead off detection
   us_delay(4);
   
-  ads1299_write_reg(BIAS_SENSP, 0x08); //use channel 4 as bias. does matter.
+  ads1299_write_reg(BIAS_SENSP, 0x04); //use channel 4 as bias. does matter.
   us_delay(4);
-  ads1299_write_reg(BIAS_SENSN, 0x08);
+  ads1299_write_reg(BIAS_SENSN, 0x04);
   us_delay(4);
   
 

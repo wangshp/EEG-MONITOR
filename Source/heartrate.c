@@ -70,6 +70,11 @@ Copyright 2011 - 2013 Texas Instruments Incorporated. All rights reserved.
 
 #include "ads1299.h"
 #include "eegservice.h"
+
+//haptic part
+#include "Haptics_2605.h"
+#include "DRV2605.h"
+
 /*********************************************************************
  * MACROS
  */
@@ -155,9 +160,12 @@ uint8 status2;
 int status_value1 = 0;
 int status_value2 = 0;
 
-//haptic sensor
-uint8 haptic_start = 1;
+//HAPTIC PART
 uint8 haptic_config = 0;
+uint8 haptic_start = 0;
+uint32 haptic_duration = 10; //10s
+uint8 vibrate_period = 2; //200ms
+extern uint8 vibration_amplitudeH; //0x10~0x30
 /*********************************************************************
  * EXTERNAL VARIABLES
  */
@@ -261,6 +269,7 @@ static void ecgMeasNotify(void);
 static void ecgPeriodicTask( void );
 
 static void hapticPeriodicTask();
+void haptic_config_update(void);
 /*********************************************************************
  * PROFILE CALLBACKS
  */
@@ -427,7 +436,10 @@ void HeartRate_Init( uint8 task_id )
   //TI_ADS1293_SPISetup();                                                       // Initilaize CC254x SPI Block 
   //ads1299_set_up();      
   
-
+  //haptic sensor
+  HalI2CInit( i2cClock_267KHZ );
+  Haptics_Init();
+  
   //turn on overlapped processing
   HCI_EXT_HaltDuringRfCmd(HCI_EXT_HALT_DURING_RF_DISABLE);
   HCI_EXT_OverlappedProcessingCmd(HCI_EXT_ENABLE_OVERLAPPED_PROCESSING);
@@ -850,7 +862,7 @@ static void ecgCB(uint8 event)
   {
     // stop periodic measurement
     osal_stop_timerEx( heartRate_TaskID, ECG_PERIODIC_EVT );
-    //ads1299_shut_down();    
+    ads1299_shut_down();    
   }
   else if (event == ECG_COMMAND_SET)
   {
@@ -969,6 +981,9 @@ void Haptic_Control(void)
     P1_0 = 0;
   //haptic_config = 2;
   //HeartRate_SetParameter(HEARTRATE_COMMAND, sizeof (uint8), &haptic_config);
+  HalI2CInit( i2cClock_267KHZ );
+  haptic_config_update();
+  haptic_process();
 }
 
 static void hapticPeriodicTask()
@@ -1187,7 +1202,7 @@ __near_func __interrupt void TI_ADS1293_DRDY_PORTx(void)
     if(counter_ADS == 0)
     {
       
-      //status.
+      /*status.*/
       spiReadByte( &status0, 0xFF); 
       spiReadByte( &status1, 0xFF); 
       spiReadByte( &status2, 0xFF); 
@@ -1202,7 +1217,8 @@ __near_func __interrupt void TI_ADS1293_DRDY_PORTx(void)
       *(recv_buf + 1) = status_value1 + status_value2;
       
       counter_ADS = counter_ADS + 2;  
-
+      //FOR TEST
+      counter_ADS = 0;
       //eeg data for 3 channels
       for(int i = 0; i < 3; i++)
       {
@@ -1285,5 +1301,39 @@ __near_func __interrupt void TI_ADS1293_DRDY_PORTx(void)
 
   EA = 1;
 }
+
+void haptic_config_update(void)
+{
+  HeartRate_GetParameter(HEARTRATE_COMMAND, &haptic_config);
+  //ecg_GetParameter(ECG_COMMAND, &haptic_config);
+  if(haptic_config == 0x01)
+    haptic_start = 1;              
+  else if(haptic_config == 0x02)
+  {
+    haptic_start = 0;
+    haptic_stop();
+  }
+  else if(haptic_config == 0x03)
+    haptic_duration++;             //*m
+  else if(haptic_config == 0x04)
+    haptic_duration--;
+  else if(haptic_config == 0x05)
+    vibrate_period++;              //*100ms
+  else if(haptic_config == 0x06)
+    vibrate_period--;
+  else if(haptic_config == 0x07)
+    vibration_amplitudeH = vibration_amplitudeH + 0x05;
+  else if(haptic_config == 0x08)
+    vibration_amplitudeH = vibration_amplitudeH - 0x05;
+  
+  if(vibration_amplitudeH > 0x31)
+    vibration_amplitudeH = 0x30;
+  if(vibration_amplitudeH < 0x10)
+    vibration_amplitudeH = 0x10;
+  
+  haptic_config = 0;
+  ecg_SetParameter(ECG_COMMAND, sizeof (uint8), &haptic_config);
+}
+
 /*********************************************************************
 *********************************************************************/

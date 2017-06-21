@@ -132,6 +132,7 @@ Copyright 2011 - 2013 Texas Instruments Incorporated. All rights reserved.
 #define ENERGY_INCREMENT                      10
 #define FLAGS_IDX_MAX                         7
 
+#define POWER_SAVING                          CC2540_PM2
 /*********************************************************************
  * TYPEDEFS
  */
@@ -425,27 +426,32 @@ void HeartRate_Init( uint8 task_id )
   P1IFG &= ~0x80;                                                              // clear Port1.7 pin status flag
   P1IEN |= 0x80;                                                               // enable P1_7 interrupt
   IEN2  |= 0x10;                                                               // enable Port1 interrupt
-
+/**/  
   delay_init();
   P1_0 = 1;
   ms_delay(2000);
   P1_0 = 0;
   ms_delay(2000);
   P1_0 = 1;
-  
+
   //TI_ADS1293_SPISetup();                                                       // Initilaize CC254x SPI Block 
   //ads1299_set_up();      
+  ads1299_powerdown();
   
   //haptic sensor
-  HalI2CInit( i2cClock_267KHZ );
-  Haptics_Init();
+  //HalI2CInit( i2cClock_267KHZ );
+  //Haptics_Init();
   
+  
+  hr_module_lowpower();
   //turn on overlapped processing
   HCI_EXT_HaltDuringRfCmd(HCI_EXT_HALT_DURING_RF_DISABLE);
   HCI_EXT_OverlappedProcessingCmd(HCI_EXT_ENABLE_OVERLAPPED_PROCESSING);
   
   // Setup a delayed profile startup
   osal_set_event( heartRate_TaskID, START_DEVICE_EVT );
+  
+
 }
 
 /*********************************************************************
@@ -660,7 +666,7 @@ static void ecgMeasNotify(void)
 {
   uint8 i;
 
-  ecgMeas.len = 18;  //20 ,ark??
+  ecgMeas.len = 20;  //20 ,ark??
   /*
   ecgMeas.value[0] = 1;
   ecg_MeasNotify( gapConnHandle, &ecgMeas);
@@ -719,6 +725,16 @@ static void HeartRateGapStateCB( gaprole_States_t newState )
     
     //Start haptic sensor task.
     osal_start_timerEx( heartRate_TaskID, HAPTIC_PERIODIC_EVT, DEFAULT_HAPTIC_PERIOD );
+    
+    //ads start up and go to standby mode.
+    TI_ADS1293_SPISetup();
+    ads1299_set_up();
+    ads1299_standby();
+    
+    //haptic sensor
+    HalI2CInit( i2cClock_267KHZ );
+    Haptics_Init();
+  
     //Init the heart rate module
     // hr_module_init(); 
     //ads1299_set_up();
@@ -735,7 +751,25 @@ static void HeartRateGapStateCB( gaprole_States_t newState )
     //stop haptic sensor task
     osal_stop_timerEx( heartRate_TaskID, HAPTIC_PERIODIC_EVT );
     
+     //stop eeg task
+    osal_stop_timerEx( heartRate_TaskID, ECG_PERIODIC_EVT );
+    
+     //stop eeg task
+    osal_stop_timerEx( heartRate_TaskID, BATT_PERIODIC_EVT );
+    
     //hr_module_stop();
+    hr_module_lowpower();
+    
+    //power down ads
+    TI_ADS1293_SPISetup();
+    ads1299_biasoff();
+    ads1299_standby();
+    ads1299_powerdown();
+    
+    //stop haptic sensor.
+    HalI2CInit( i2cClock_267KHZ );
+    haptic_stop();
+    haptic_shutdown();
     
     // reset client characteristic configuration descriptors
     HeartRate_HandleConnStatusCB( gapConnHandle, LINKDB_STATUS_UPDATE_REMOVED );
@@ -826,7 +860,8 @@ static void heartRateCB(uint8 event)
   }
   else if (event == HEARTRATE_MEAS_NOTI_DISABLED)
   {
-    hr_module_stop();
+    //hr_module_stop();
+    hr_module_lowpower();
     // stop periodic measurement
     osal_stop_timerEx( heartRate_TaskID, HEART_PERIODIC_EVT );
   }
@@ -854,7 +889,9 @@ static void ecgCB(uint8 event)
     if (gapProfileState == GAPROLE_CONNECTED)
     {
       TI_ADS1293_SPISetup();                                                       // Initilaize CC254x SPI Block 
-      ads1299_set_up();      //can't set up at here.
+      ads1299_wakeup();
+      us_delay(50);
+      //ads1299_set_up();      //can't set up at here.
       osal_start_timerEx( heartRate_TaskID, ECG_PERIODIC_EVT, DEFAULT_ECG_PERIOD );
     } 
   }
@@ -862,7 +899,8 @@ static void ecgCB(uint8 event)
   {
     // stop periodic measurement
     osal_stop_timerEx( heartRate_TaskID, ECG_PERIODIC_EVT );
-    ads1299_shut_down();    
+    ads1299_stop();    
+    //ads1299_standby();
   }
   else if (event == ECG_COMMAND_SET)
   {
@@ -1040,12 +1078,22 @@ void hr_module_stop()
   uint8 buffer_w[2] = {0, 0};  //data to write in I2C
   
   buffer_w[0] = MODE_CFR; //0X06
-  buffer_w[1] = 0x00;         //set HR only mode 
+  buffer_w[1] = 0x80;         // 0x00 as stop converting.
   HalI2CWrite(HR_ID, 2, buffer_w, 1); //after set mode, it triggers power ready interrupt.
   
 }
 
-
+void hr_module_lowpower(void)
+{
+  HalI2CInit( i2cClock_267KHZ );
+  
+  uint8 buffer_w[2] = {0, 0};  //data to write in I2C
+  
+  buffer_w[0] = MODE_CFR; //0X06
+  buffer_w[1] = 0x80;         // power down.
+  HalI2CWrite(HR_ID, 2, buffer_w, 1); //after set mode, it triggers power ready interrupt.
+  
+}
 
 int num_counter = 0;
 
@@ -1218,7 +1266,7 @@ __near_func __interrupt void TI_ADS1293_DRDY_PORTx(void)
       
       counter_ADS = counter_ADS + 2;  
       //FOR TEST
-      counter_ADS = 0;
+      //counter_ADS = 0;
       //eeg data for 3 channels
       for(int i = 0; i < 3; i++)
       {

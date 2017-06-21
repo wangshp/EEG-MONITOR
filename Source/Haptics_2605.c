@@ -225,3 +225,8 @@ void haptic_stop(void)
   
   haptic_timer = 0;
 }
+
+void haptic_shutdown(void)
+{
+  HAPTICS_ENABLE_PIN = 0;
+}

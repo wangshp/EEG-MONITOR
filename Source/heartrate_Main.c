@@ -68,6 +68,7 @@
  */
 int main(void)
 {
+  
   /* Initialize hardware */
   HAL_BOARD_INIT();
 

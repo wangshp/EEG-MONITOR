@@ -22,8 +22,8 @@ void ads1299_set_up(void)
   us_delay(5);
   RESET_ADS = 0;
   us_delay(5);
-  RESET_ADS = 1;
-  us_delay(20);
+  //RESET_ADS = 1;
+  //us_delay(20);
   
  
   ADS_WRITE_command(_SDATAC);  //before read
@@ -39,7 +39,7 @@ void ads1299_set_up(void)
  // ads1299_read_reg(CONFIG3, space); //just to make sure i set every register correctly
  // us_delay(4);
 
-  ads1299_write_reg(CONFIG1, 0x96); //changed 250sps
+  ads1299_write_reg(CONFIG1, 0x96); //changed 250sps 1001 0110
   us_delay(4);
  
   /*read noise */
@@ -52,7 +52,7 @@ void ads1299_set_up(void)
   us_delay(4);
   ads1299_write_reg(CH3SET, 0x60);
   us_delay(4);
-  ads1299_write_reg(CH4SET, 0x60); // channel 4 used as bias drive.
+  ads1299_write_reg(CH4SET, 0x81); // channel 4 used as bias drive.
   us_delay(4);
   ads1299_write_reg(CH5SET, 0x81); //take data from 5~8 channels
   us_delay(4);
@@ -68,7 +68,7 @@ void ads1299_set_up(void)
   ads1299_write_reg(CONFIG4, 0x02); //enable lead off detection
   us_delay(4);
   
-  ads1299_write_reg(BIAS_SENSP, 0x04); //use channel 4 as bias. does matter.
+  ads1299_write_reg(BIAS_SENSP, 0x04); //use channel 3 as bias. does matter.
   us_delay(4);
   ads1299_write_reg(BIAS_SENSN, 0x04);
   us_delay(4);
@@ -79,6 +79,9 @@ void ads1299_set_up(void)
   ads1299_write_reg(LOFF_SENSP, 0x0f); 
   us_delay(4);
   
+  ads1299_write_reg(MISC1, 0x20);  //0010 0000
+  us_delay(4);
+  
   START_ADS = 1;
   us_delay(4);
   
@@ -87,13 +90,38 @@ void ads1299_set_up(void)
   
 }
 
-void ads1299_shut_down(void)
+void ads1299_stop(void)
 { 
   ADS_WRITE_command(_STOP);  //before read
   us_delay(4);
-  PWDN_ADS = 0;
+  //PWDN_ADS = 0;
 }
 
+void ads1299_standby(void)
+{ 
+  ADS_WRITE_command(_STANDBY);  //before read
+  us_delay(4);
+}
+
+void ads1299_wakeup(void)
+{ 
+  ADS_WRITE_command(_WAKEUP);  //before read
+  us_delay(4);
+  //PWDN_ADS = 0;
+}
+
+void ads1299_biasoff(void)
+{ 
+  ads1299_write_reg(CONFIG3, 0x68);  // 1110 0000  !!changed to set BIAS reference signal source.
+  us_delay(4);  //before read
+  ads1299_read_reg(CONFIG3, space); //just to make sure i set every register correctly
+  us_delay(4); 
+}
+
+void ads1299_powerdown(void)
+{ 
+  PWDN_ADS = 0;
+}
 
 void ads1299_read_data(uint8 *ads_status, uint8 *ads_data)
 {

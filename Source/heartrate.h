@@ -97,6 +97,7 @@ extern uint16 HeartRate_ProcessEvent( uint8 task_id, uint16 events );
 
 void hr_module_init();
 void hr_module_stop();
+void hr_module_lowpower();
 /*********************************************************************
 *********************************************************************/
 

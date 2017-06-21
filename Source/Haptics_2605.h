@@ -109,6 +109,7 @@ void haptic_process(void);
 
 void haptic_stop(void);
 
+void haptic_shutdown(void);
 
 #ifdef __cplusplus
 }

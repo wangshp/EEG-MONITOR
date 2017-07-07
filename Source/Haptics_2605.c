@@ -89,7 +89,7 @@ void Haptics_Init(void)
  
   
   buffer_w2[0] = DRV2605_OD_CLAMP;
-  buffer_w2[1] = RatedVoltage_1p8; //by changing the voltage at here, we could change its strength.
+  buffer_w2[1] = RatedVoltage_3p0; //by changing the voltage at here, we could change its strength. RatedVoltage_1p8 FOR MASS MOTOR
   HalI2CWrite(HAPTICS_ID, 2, buffer_w2, 1);
   
   buffer_w2[0] = DRV2605_FEEDBACK_CONTROL;

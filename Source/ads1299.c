@@ -63,7 +63,7 @@ void ads1299_set_up(void)
   ads1299_write_reg(CH8SET, 0x81); //set the SRB connection as open to unconnected
   us_delay(4);
 
-  ads1299_write_reg(LOFF, 0x08);
+  ads1299_write_reg(LOFF, 0x08); //6uA, lead-off detection
   us_delay(4);
   ads1299_write_reg(CONFIG4, 0x02); //enable lead off detection
   us_delay(4);
@@ -74,7 +74,7 @@ void ads1299_set_up(void)
   us_delay(4);
   
 
-  ads1299_write_reg(LOFF_SENSN, 0x0f); 
+  ads1299_write_reg(LOFF_SENSN, 0x0f); //change this should affect the returned signal: ecg or impedance check?
   us_delay(4);
   ads1299_write_reg(LOFF_SENSP, 0x0f); 
   us_delay(4);

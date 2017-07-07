@@ -666,7 +666,7 @@ static void ecgMeasNotify(void)
 {
   uint8 i;
 
-  ecgMeas.len = 20;  //20 ,ark??
+  ecgMeas.len = 18;  //20 ,ark??
   /*
   ecgMeas.value[0] = 1;
   ecg_MeasNotify( gapConnHandle, &ecgMeas);
@@ -1266,7 +1266,7 @@ __near_func __interrupt void TI_ADS1293_DRDY_PORTx(void)
       
       counter_ADS = counter_ADS + 2;  
       //FOR TEST
-      //counter_ADS = 0;
+      counter_ADS = 0;
       //eeg data for 3 channels
       for(int i = 0; i < 3; i++)
       {

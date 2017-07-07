@@ -97,17 +97,17 @@ static uint8 ecgMeasProps = GATT_PROP_NOTIFY;
 //static uint8 ecgMeas[ECG_PACKET_SIZE_BYTES];   
 static uint8 ecgMeas = 0; // vishy
 static gattCharCfg_t ecgMeasClientCharCfg[GATT_MAX_NUM_CONN];
-static uint8 ecgMeasUserDesp[21] = "ECG Measurement Data\0";
+static uint8 ecgMeasUserDesp[21] = "EEG Measurement Data\0";
 
 // ECG Num Chans Characteristic
 static uint8 ecgNumChansProps = GATT_PROP_READ;
 static uint8 ecgNumChans = ECG_NUM_CHANNELS;
-static uint8 ecgNumChansUserDesp[23] = "Number of ECG Channels\0";
+static uint8 ecgNumChansUserDesp[23] = "Number of EEG Channels\0";
 
 // Number of ECG Sample sets (containing 3 bytes of data for each ECG channel)
 static uint8 ecgSampeSetsProps = GATT_PROP_READ;
 static uint8 ecgSampleSetsPerPacket = ECG_SAMPLE_SETS_PER_PACKET;
-static uint8 ecgSampleSetsUserDesp[27] = "ECG Sample Sets Per Packet\0";
+static uint8 ecgSampleSetsUserDesp[27] = "EEG Sample Sets Per Packet\0";
 
 // Command Characteristic
 static uint8 ecgCommandProps = GATT_PROP_WRITE;

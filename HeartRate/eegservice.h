@@ -42,9 +42,9 @@ extern "C"
 // Maximum length of heart rate measurement characteristic
 #define ECG_MEAS_MAX                  (ATT_MAX_MTU_SIZE -5)
 
-#define ECG_SAMPLE_SETS_PER_PACKET    2      // We are packing together 2 samples
+#define ECG_SAMPLE_SETS_PER_PACKET    1      // We are packing together 2 samples
 #define ECG_BYTES_PER_CHANNEL         3       // 24 bits per ecg channel
-#define ECG_NUM_CHANNELS              3
+#define ECG_NUM_CHANNELS              6
 #define ECG_PACKET_SIZE_BYTES         (ECG_SAMPLE_SETS_PER_PACKET *(ECG_BYTES_PER_CHANNEL * ECG_NUM_CHANNELS ))+2
     
 // Value for command characteristic

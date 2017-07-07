@@ -439,10 +439,12 @@ static bStatus_t heartRate_WriteAttrCB( uint16 connHandle, gattAttribute_t *pAtt
       {
         status = ATT_ERR_INVALID_VALUE_SIZE;
       }
+      /* could be changed later!
       else if (*pValue != HEARTRATE_COMMAND_ENERGY_EXP)
       {
         status = HEARTRATE_ERR_NOT_SUP;
       }
+      */
       else
       {
         *(pAttr->pValue) = pValue[0];
